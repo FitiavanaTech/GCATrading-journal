@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GC Agency — Trading Journal</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #f5f5f4;
+  --color-background-tertiary: #f0efed;
+  --color-text-primary: #1c1917;
+  --color-text-secondary: #78716c;
+  --color-border-primary: #1c1917;
+  --color-border-secondary: #a8a29e;
+  --color-border-tertiary: #e7e5e4;
+  --border-radius-sm: 4px;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); background: var(--color-background-tertiary); color: var(--color-text-primary); min-height: 100vh; }
+
+/* ── AUTH ── */
+#auth-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.auth-box {
+  background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg); padding: 32px; width: 100%; max-width: 380px;
+}
+.auth-box h2 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+.auth-box p { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 24px; }
+.auth-tabs { display: flex; gap: 0; margin-bottom: 24px; border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); overflow: hidden; }
+.auth-tab { flex: 1; padding: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: transparent; color: var(--color-text-secondary); font-family: var(--font-sans); }
+.auth-tab.active { background: var(--color-text-primary); color: var(--color-background-primary); }
+.auth-field { margin-bottom: 14px; }
+.auth-field label { font-size: 12px; color: var(--color-text-secondary); display: block; margin-bottom: 4px; }
+.auth-field input { width: 100%; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 10px 12px; font-size: 14px; color: var(--color-text-primary); font-family: var(--font-sans); }
+.auth-field input:focus { outline: none; border-color: var(--color-border-primary); }
+.auth-error { background: #FCEBEB; color: #A32D2D; border-radius: var(--border-radius-md); padding: 10px 12px; font-size: 13px; margin-bottom: 14px; display: none; }
+.auth-success { background: #EAF3DE; color: #3B6D11; border-radius: var(--border-radius-md); padding: 10px 12px; font-size: 13px; margin-bottom: 14px; display: none; }
+.config-notice { background: #FEF9C3; border: 0.5px solid #FDE047; border-radius: var(--border-radius-md); padding: 12px; font-size: 12px; color: #713F12; margin-bottom: 20px; line-height: 1.5; }
+
+/* ── APP ── */
+#app-screen { display: none; }
+.app { max-width: 900px; margin: 0 auto; padding: 0 0 40px; }
+.header { background: var(--color-background-primary); border-bottom: 0.5px solid var(--color-border-tertiary); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+.header h1 { font-size: 16px; font-weight: 500; }
+.tabs { background: var(--color-background-primary); border-bottom: 0.5px solid var(--color-border-tertiary); padding: 0 20px; display: flex; gap: 4px; }
+.tab { padding: 10px 16px; font-size: 14px; cursor: pointer; border: none; background: none; color: var(--color-text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; display: flex; align-items: center; gap: 6px; font-family: var(--font-sans); }
+.tab.active { color: var(--color-text-primary); border-bottom-color: var(--color-text-primary); }
+.content { padding: 20px; }
+.card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 16px 20px; margin-bottom: 12px; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+.badge-win { background: #EAF3DE; color: #3B6D11; }
+.badge-loss { background: #FCEBEB; color: #A32D2D; }
+.badge-open { background: #E6F1FB; color: #185FA5; }
+.badge-be { background: #FAEEDA; color: #854F0B; }
+.badge-tp { background: #E1F5EE; color: #0F6E56; }
+.badge-long { background: #EAF3DE; color: #3B6D11; }
+.badge-short { background: #FCEBEB; color: #A32D2D; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.stat-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px; }
+.stat-card .label { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+.stat-card .value { font-size: 22px; font-weight: 500; }
+.green { color: #3B6D11; } .red { color: #A32D2D; } .blue { color: #185FA5; } .amber { color: #854F0B; }
+label { font-size: 13px; color: var(--color-text-secondary); display: block; margin-bottom: 4px; }
+input, select, textarea { width: 100%; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 8px 10px; font-size: 14px; color: var(--color-text-primary); font-family: var(--font-sans); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--color-border-primary); }
+.btn { padding: 8px 16px; border-radius: var(--border-radius-md); font-size: 14px; cursor: pointer; border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); font-family: var(--font-sans); }
+.btn:hover { background: var(--color-background-secondary); }
+.btn-primary { background: var(--color-text-primary); color: var(--color-background-primary); border: none; }
+.btn-primary:hover { opacity: 0.85; }
+.btn-danger { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.trade-row { cursor: pointer; transition: background 0.15s; }
+.trade-row:hover { background: var(--color-background-secondary); }
+.trade-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; }
+.trade-details { padding: 16px 20px; border-top: 0.5px solid var(--color-border-tertiary); }
+.checklist-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border-radius: var(--border-radius-md); cursor: pointer; margin-bottom: 4px; }
+.checklist-item:hover { background: var(--color-background-secondary); }
+.checkbox { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--color-border-secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.checkbox.checked { background: var(--color-text-primary); border-color: var(--color-text-primary); color: var(--color-background-primary); }
+.section-header { padding: 10px 14px; border-radius: var(--border-radius-md); margin-bottom: 8px; }
+.section-pre { background: #E1F5EE; } .section-amt { background: #E6F1FB; } .section-conf { background: #FAEEDA; } .section-flow { background: #FAECE7; } .section-risk { background: #FCEBEB; }
+.eye-btn { background: none; border: none; cursor: pointer; color: var(--color-text-secondary); padding: 2px 4px; font-size: 15px; line-height: 1; vertical-align: middle; }
+.eye-btn:hover { color: var(--color-text-primary); }
+.progress-bar { height: 6px; background: var(--color-background-secondary); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+.progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; background: var(--color-text-primary); }
+.dir-btn { flex: 1; padding: 8px; border-radius: var(--border-radius-md); font-size: 13px; font-weight: 500; cursor: pointer; border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-secondary); color: var(--color-text-secondary); font-family: var(--font-sans); }
+.dir-btn.long-active { background: #EAF3DE; color: #3B6D11; border-color: #C0DD97; }
+.dir-btn.short-active { background: #FCEBEB; color: #A32D2D; border-color: #F7C1C1; }
+.manual-panel { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); border: 0.5px solid var(--color-border-tertiary); padding: 16px 20px; margin-bottom: 16px; }
+.collapse-btn { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: none; cursor: pointer; color: var(--color-text-primary); font-family: var(--font-sans); font-size: 14px; font-weight: 500; padding: 0; }
+.divider { border: none; border-top: 0.5px solid var(--color-border-tertiary); margin: 14px 0; }
+.loading { text-align: center; padding: 40px; color: var(--color-text-secondary); font-size: 14px; }
+
+/* Stats */
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.legend-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.legend-row:last-child { border-bottom: none; }
+.bar-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bar-label { font-size: 12px; color: var(--color-text-secondary); min-width: 80px; }
+.bar-track { flex: 1; height: 8px; background: var(--color-background-secondary); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+.bar-val { font-size: 12px; font-weight: 500; min-width: 36px; text-align: right; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     ÉCRAN DE CONFIGURATION (si pas encore configuré)
+═══════════════════════════════════════════════ -->
+<div id="config-screen" style="display:none; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;">
+  <div class="auth-box" style="max-width:480px;">
+    <h2>⚙️ Configuration Supabase</h2>
+    <p>Entre ta config Supabase pour activer l'authentification et la base de données cloud.</p>
+    <div class="auth-field">
+      <label>Project URL</label>
+      <input type="text" id="cfg-url" placeholder="https://xxxxx.supabase.co"/>
+    </div>
+    <div class="auth-field">
+      <label>Anon Public Key</label>
+      <input type="text" id="cfg-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."/>
+    </div>
+    <div id="cfg-error" class="auth-error"></div>
+    <button class="btn btn-primary" style="width:100%;padding:11px;" onclick="saveConfig()">Sauvegarder et continuer</button>
+    <p style="margin-top:14px;font-size:12px;color:var(--color-text-secondary);">Ces infos se trouvent dans Supabase → Settings → API</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     ÉCRAN D'AUTHENTIFICATION
+═══════════════════════════════════════════════ -->
+<div id="auth-screen" style="display:none;">
+  <div class="auth-box">
+    <h2>GC Agency</h2>
+    <p>Trading Journal — Accès sécurisé</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="login-tab" onclick="switchAuthTab('login')">Connexion</button>
+      <button class="auth-tab" id="signup-tab" onclick="switchAuthTab('signup')">Inscription</button>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <div id="auth-success" class="auth-success"></div>
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" id="auth-email" placeholder="vous@email.com" onkeydown="if(event.key==='Enter')authSubmit()"/>
+    </div>
+    <div class="auth-field">
+      <label>Mot de passe</label>
+      <input type="password" id="auth-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')authSubmit()"/>
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:11px;" onclick="authSubmit()" id="auth-btn">Se connecter</button>
+    <p style="margin-top:16px;font-size:12px;color:var(--color-text-secondary);text-align:center;">
+      <a href="#" onclick="showConfig()" style="color:var(--color-text-secondary);">Modifier la configuration</a>
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     APP PRINCIPALE
+═══════════════════════════════════════════════ -->
+<div id="app-screen" style="display:none;">
+<div class="app">
+  <div class="header">
+    <h1>GC Agency — Trading Journal</h1>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span style="font-size:13px;color:var(--color-text-secondary);" id="user-email"></span>
+      <button class="btn" style="font-size:12px;padding:5px 10px;" onclick="logout()" title="Déconnexion">
+        <i class="ti ti-logout" aria-hidden="true"></i>
+      </button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" id="tab-checklist" onclick="switchTab('checklist')"><i class="ti ti-clipboard-list" aria-hidden="true"></i> Checklist</button>
+    <button class="tab" id="tab-journal" onclick="switchTab('journal')"><i class="ti ti-book" aria-hidden="true"></i> Journal <span id="open-badge" style="background:#E6F1FB;color:#185FA5;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:2px;"></span></button>
+    <button class="tab" id="tab-stats" onclick="switchTab('stats')"><i class="ti ti-chart-bar" aria-hidden="true"></i> Stats</button>
+  </div>
+  <div class="content" id="content"></div>
+</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// CONFIGURATION SUPABASE
+// ══════════════════════════════════════════════
+let supabase = null;
+
+function getConfig() {
+  return {
+    url: localStorage.getItem('sb_url') || '',
+    key: localStorage.getItem('sb_key') || ''
+  };
+}
+
+function saveConfig() {
+  const url = document.getElementById('cfg-url').value.trim();
+  const key = document.getElementById('cfg-key').value.trim();
+  const err = document.getElementById('cfg-error');
+  if (!url || !url.startsWith('https://')) { err.style.display='block'; err.textContent='URL invalide (doit commencer par https://)'; return; }
+  if (!key || key.length < 20) { err.style.display='block'; err.textContent='Clé invalide'; return; }
+  localStorage.setItem('sb_url', url);
+  localStorage.setItem('sb_key', key);
+  initSupabase(url, key);
+}
+
+function showConfig() {
+  document.getElementById('config-screen').style.display = 'flex';
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'none';
+}
+
+function initSupabase(url, key) {
+  try {
+    supabase = window.supabase.createClient(url, key);
+    document.getElementById('config-screen').style.display = 'none';
+    checkSession();
+  } catch(e) {
+    const err = document.getElementById('cfg-error');
+    if (err) { err.style.display='block'; err.textContent='Config invalide: ' + e.message; }
+  }
+}
+
+// ══════════════════════════════════════════════
+// AUTH
+// ══════════════════════════════════════════════
+let currentUser = null;
+let authMode = 'login';
+
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('login-tab').classList.toggle('active', mode==='login');
+  document.getElementById('signup-tab').classList.toggle('active', mode==='signup');
+  document.getElementById('auth-btn').textContent = mode==='login' ? 'Se connecter' : "S'inscrire";
+  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-success').style.display = 'none';
+}
+
+async function authSubmit() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl = document.getElementById('auth-error');
+  const sucEl = document.getElementById('auth-success');
+  errEl.style.display = 'none'; sucEl.style.display = 'none';
+  if (!email || !password) { errEl.style.display='block'; errEl.textContent='Email et mot de passe requis'; return; }
+  document.getElementById('auth-btn').textContent = 'Chargement...';
+  try {
+    let result;
+    if (authMode === 'login') {
+      result = await supabase.auth.signInWithPassword({ email, password });
+    } else {
+      result = await supabase.auth.signUp({ email, password });
+    }
+    if (result.error) {
+      errEl.style.display='block';
+      errEl.textContent = translateError(result.error.message);
+    } else if (authMode === 'signup' && !result.data.session) {
+      sucEl.style.display='block';
+      sucEl.textContent = 'Compte créé ! Vérifie ton email pour confirmer, puis connecte-toi.';
+    } else {
+      currentUser = result.data.user;
+      showApp();
+    }
+  } catch(e) {
+    errEl.style.display='block'; errEl.textContent = 'Erreur: ' + e.message;
+  }
+  document.getElementById('auth-btn').textContent = authMode==='login' ? 'Se connecter' : "S'inscrire";
+}
+
+function translateError(msg) {
+  if (msg.includes('Invalid login')) return 'Email ou mot de passe incorrect';
+  if (msg.includes('already registered')) return 'Cet email est déjà utilisé';
+  if (msg.includes('Password should')) return 'Mot de passe trop court (min 6 caractères)';
+  return msg;
+}
+
+async function checkSession() {
+  const { data } = await supabase.auth.getSession();
+  if (data.session) {
+    currentUser = data.session.user;
+    showApp();
+  } else {
+    document.getElementById('auth-screen').style.display = 'flex';
+  }
+}
+
+async function logout() {
+  await supabase.auth.signOut();
+  currentUser = null;
+  state.trades = [];
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+
+async function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('user-email').textContent = currentUser.email;
+  await loadTrades();
+  render();
+}
+
+// ══════════════════════════════════════════════
+// BASE DE DONNÉES SUPABASE
+// ══════════════════════════════════════════════
+async function loadTrades() {
+  const { data, error } = await supabase
+    .from('trades')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false });
+  if (!error && data) {
+    state.trades = data;
+  }
+}
+
+async function saveTrade(trade) {
+  const { data, error } = await supabase
+    .from('trades')
+    .insert([{ ...trade, user_id: currentUser.id }])
+    .select()
+    .single();
+  if (!error && data) {
+    state.trades.unshift(data);
+  } else {
+    // Fallback local si table pas encore créée
+    state.trades.unshift(trade);
+    if (error) console.warn('Supabase insert error:', error.message);
+  }
+}
+
+async function updateTrade(id, updates) {
+  const { error } = await supabase
+    .from('trades')
+    .update(updates)
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
+  if (error) console.warn('Supabase update error:', error.message);
+}
+
+async function deleteTrade(id) {
+  if (!confirm('Supprimer ce trade ?')) return;
+  await supabase.from('trades').delete().eq('id', id).eq('user_id', currentUser.id);
+  state.trades = state.trades.filter(t => t.id !== id);
+  state.expandedTrade = null;
+  render();
+}
+
+// ══════════════════════════════════════════════
+// CHECKLIST
+// ══════════════════════════════════════════════
+const CHECKLIST = [
+  { id:'premarket', title:'1. Pre-Market : Cadre Macro', cls:'section-pre', items:[
+    {k:'intermarket_analyzed', label:'Intermarché', desc:'DXY et US10Y analysés (Biais SP500)'},
+    {k:'geopolitics_checked', label:'Géopolitique', desc:'Climat du jour (Risk-On / Risk-Off)'},
+    {k:'calendar_noted', label:'Calendrier', desc:'Heures des news fort impact notées'},
+    {k:'open_bias_analyzed', label:'Biais Open', desc:'Analyse ouverture TPO RTH'},
+  ]},
+  { id:'amt', title:'2. Cartographie AMT', cls:'section-amt', items:[
+    {k:'weekly_levels_traced', label:'Weekly', desc:'High, Low, VAH, VAL, POC, VWAP Weekly'},
+    {k:'daily_levels_traced', label:'Daily', desc:'PDH, PDL, VAH, VAL, POC tracés'},
+    {k:'amt_dynamic_checked', label:'Dynamique AMT', desc:'Acceptation (latéral) ou Rejet (tendance)?'},
+  ]},
+  { id:'confluence', title:'3. Zone de Chasse : Confluences', cls:'section-conf', items:[
+    {k:'zone_validated', label:'Zone validée', desc:'Prix sur niveau clé (VAL, POC, Single Print)'},
+    {k:'vwap_confluence', label:'Confluence VWAP', desc:'Zone alignée avec VWAP Weekly ou Daily'},
+  ]},
+  { id:'orderflow', title:'4. Exécution : Order Flow', cls:'section-flow', items:[
+    {k:'volume_increase', label:'Volume', desc:'Augmentation claire du volume à la zone'},
+    {k:'imbalance_visible', label:'Imbalance', desc:'Déséquilibre agressif visible'},
+    {k:'absorption_detected', label:'Absorption', desc:'Épuisement constaté + blocage du prix'},
+  ]},
+  { id:'risk', title:'5. Gestion des Risques', cls:'section-risk', items:[
+    {k:'risk_calculated', label:'Risque', desc:'Risque calculé et limité à 0.5% max capital'},
+    {k:'stop_loss_placed', label:'Stop Loss', desc:'Placé à +30 points max zone absorption'},
+    {k:'take_profit_set', label:'Take Profit', desc:'Fixé selon AMT (prochaine borne valeur/POC)'},
+  ]},
+];
+const TOTAL_ITEMS = CHECKLIST.reduce((a,s) => a + s.items.length, 0);
+
+// ══════════════════════════════════════════════
+// STATE & HELPERS
+// ══════════════════════════════════════════════
+function nowISO() {
+  const n = new Date(), p = x => String(x).padStart(2,'0');
+  return `${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}T${p(n.getHours())}:${p(n.getMinutes())}`;
+}
+
+function computeR(trade) {
+  const {entry_price:e, stop_loss_price:sl, exit_price:ex, direction:d} = trade;
+  if (!e||!sl||!ex||!d) return null;
+  const risk = Math.abs(e-sl);
+  if (risk===0) return null;
+  return parseFloat(((d==='LONG'?ex-e:e-ex)/risk).toFixed(2));
+}
+
+function totalR(trades) {
+  const rs = trades.map(t => t.r_factor !== null ? t.r_factor : computeR(t)).filter(r => r !== null);
+  if (!rs.length) return null;
+  return parseFloat(rs.reduce((a,x)=>a+x,0).toFixed(2));
+}
+
+let state = {
+  tab: 'checklist',
+  checked: {},
+  tradeForm: { instrument:'GC', session:'', direction:'', entry_price:'', stop_loss_price:'', take_profit_price:'', position_size:'', market_context:'', entry_reason:'', notes:'', entry_time: nowISO() },
+  manualForm: { instrument:'GC', session:'', direction:'', entry_price:'', stop_loss_price:'', take_profit_price:'', exit_price:'', pnl:'', status:'WIN', notes:'', entry_time: nowISO(), exit_time: nowISO(), market_context:'', entry_reason:'', exit_reason:'' },
+  manualOpen: false,
+  trades: [],
+  expandedTrade: null,
+  editingTrade: null,
+  editForm: {},
+  showTotalDollars: false,
+  showTradesDollars: {},
+};
+
+function getStats() {
+  const t = state.trades;
+  const wins = t.filter(x => x.status==='WIN'||x.status==='TP').length;
+  const losses = t.filter(x => x.status==='LOSS').length;
+  const open = t.filter(x => x.status==='OPEN').length;
+  const pnl = t.reduce((a,x) => a+(x.pnl||0), 0);
+  const rFactors = t.map(x => x.r_factor!==null?x.r_factor:computeR(x)).filter(r=>r!==null);
+  const avgR = rFactors.length ? parseFloat((rFactors.reduce((a,x)=>a+x,0)/rFactors.length).toFixed(2)) : null;
+  const totR = totalR(t);
+  const wr = (wins+losses)>0 ? ((wins/(wins+losses))*100).toFixed(1) : 0;
+  return { total:t.length, wins, losses, open, pnl, wr, avgR, totR };
+}
+
+function switchTab(tab) {
+  state.tab = tab;
+  ['checklist','journal','stats'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+  });
+  render();
+}
+
+function toggleCheck(k) { state.checked[k] = !state.checked[k]; render(); }
+
+function render() {
+  const c = document.getElementById('content');
+  const s = getStats();
+  document.getElementById('open-badge').textContent = s.open > 0 ? s.open : '';
+  if (state.tab==='checklist') c.innerHTML = renderChecklist();
+  else if (state.tab==='journal') c.innerHTML = renderJournal();
+  else if (state.tab==='stats') c.innerHTML = renderStats();
+}
+
+// ══════════════════════════════════════════════
+// CHECKLIST RENDER
+// ══════════════════════════════════════════════
+function renderChecklist() {
+  const checkedCount = Object.values(state.checked).filter(Boolean).length;
+  const progress = (checkedCount / TOTAL_ITEMS) * 100;
+  const complete = checkedCount === TOTAL_ITEMS;
+  const f = state.tradeForm;
+  let sections = CHECKLIST.map(s => `
+    <div class="card" style="margin-bottom:10px;">
+      <div class="section-header ${s.cls}" style="margin:-4px -4px 10px;border-radius:6px;">
+        <span style="font-size:13px;font-weight:500;">${s.title}</span>
+      </div>
+      ${s.items.map(item => `
+        <div class="checklist-item" onclick="toggleCheck('${item.k}')">
+          <div class="checkbox ${state.checked[item.k]?'checked':''}">
+            ${state.checked[item.k]?'<i class="ti ti-check" style="font-size:12px;" aria-hidden="true"></i>':''}
+          </div>
+          <div>
+            <div style="font-size:14px;font-weight:500;">${item.label}</div>
+            <div style="font-size:12px;color:var(--color-text-secondary);">${item.desc}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+  return `
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="font-size:13px;font-weight:500;">Progression</span>
+        <span style="font-size:13px;color:var(--color-text-secondary);">${checkedCount}/${TOTAL_ITEMS}</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>
+      ${!complete ? '<p style="font-size:12px;color:var(--color-text-secondary);margin-top:6px;">Complétez toute la checklist avant de trader</p>' : '<p style="font-size:12px;color:#3B6D11;margin-top:6px;">✓ Checklist complète — vous pouvez trader</p>'}
+    </div>
+    ${sections}
+    <div class="card">
+      <div style="font-size:14px;font-weight:500;margin-bottom:14px;">Détails du Trade</div>
+      <div class="grid-2" style="margin-bottom:12px;">
+        <div><label>Instrument</label>
+          <select onchange="state.tradeForm.instrument=this.value">
+            <option value="GC">GC (Gold)</option><option value="ES">ES (S&P 500)</option><option value="NQ">NQ (Nasdaq)</option>
+          </select>
+        </div>
+        <div><label>Session</label>
+          <select onchange="state.tradeForm.session=this.value">
+            <option value="">Sélectionnez...</option><option value="ASIA">Asia</option><option value="LONDON">London</option>
+            <option value="OVERLAP">Overlap London/NY</option><option value="NEW_YORK">New York</option>
+          </select>
+        </div>
+        <div><label>Direction</label>
+          <div style="display:flex;gap:6px;">
+            <button class="dir-btn ${f.direction==='LONG'?'long-active':''}" onclick="state.tradeForm.direction='LONG';render()">LONG</button>
+            <button class="dir-btn ${f.direction==='SHORT'?'short-active':''}" onclick="state.tradeForm.direction='SHORT';render()">SHORT</button>
+          </div>
+        </div>
+        <div><label>Date & Heure d'entrée</label><input type="datetime-local" value="${f.entry_time}" onchange="state.tradeForm.entry_time=this.value"/></div>
+      </div>
+      <div class="grid-4" style="margin-bottom:12px;">
+        <div><label>Prix d'entrée</label><input type="number" step="0.01" placeholder="3320.00" value="${f.entry_price}" onchange="state.tradeForm.entry_price=this.value"/></div>
+        <div><label>Stop Loss</label><input type="number" step="0.01" placeholder="3290.00" value="${f.stop_loss_price}" onchange="state.tradeForm.stop_loss_price=this.value"/></div>
+        <div><label>Take Profit</label><input type="number" step="0.01" placeholder="3380.00" value="${f.take_profit_price}" onchange="state.tradeForm.take_profit_price=this.value"/></div>
+        <div><label>Taille Position</label><input type="number" step="0.01" placeholder="1" value="${f.position_size}" onchange="state.tradeForm.position_size=this.value"/></div>
+      </div>
+      <div style="margin-bottom:10px;"><label>Contexte du Marché</label><textarea rows="2" placeholder="DXY en baisse..." onchange="state.tradeForm.market_context=this.value">${f.market_context}</textarea></div>
+      <div style="margin-bottom:10px;"><label>Raison d'entrée</label><textarea rows="2" placeholder="Retest du VAL avec absorption..." onchange="state.tradeForm.entry_reason=this.value">${f.entry_reason}</textarea></div>
+      <div style="margin-bottom:14px;"><label>Notes</label><textarea rows="2" placeholder="Notes personnelles..." onchange="state.tradeForm.notes=this.value">${f.notes}</textarea></div>
+      ${!complete ? '<div style="background:#FAEEDA;border-radius:var(--border-radius-md);padding:10px 14px;margin-bottom:12px;font-size:13px;color:#854F0B;">⚠ Complétez toute la checklist avant de valider</div>' : ''}
+      <button class="btn ${complete && f.direction ? 'btn-primary' : ''}" style="width:100%;padding:12px;font-size:15px;" ${!complete||!f.direction?'disabled':''} onclick="submitTrade()">
+        Valider et Enregistrer le Trade
+      </button>
+    </div>
+  `;
+}
+
+async function submitTrade() {
+  const f = state.tradeForm;
+  if (Object.values(state.checked).filter(Boolean).length < TOTAL_ITEMS || !f.direction) return;
+  const trade = {
+    id: Date.now().toString(),
+    created_at: new Date().toISOString(),
+    entry_time: f.entry_time ? new Date(f.entry_time).toISOString() : new Date().toISOString(),
+    exit_time: null,
+    instrument: f.instrument, session: f.session||null, direction: f.direction,
+    entry_price: f.entry_price?parseFloat(f.entry_price):null,
+    stop_loss_price: f.stop_loss_price?parseFloat(f.stop_loss_price):null,
+    take_profit_price: f.take_profit_price?parseFloat(f.take_profit_price):null,
+    position_size: f.position_size?parseFloat(f.position_size):null,
+    market_context: f.market_context||null, entry_reason: f.entry_reason||null, notes: f.notes||null,
+    exit_price: null, pnl: null, r_factor: null, status: 'OPEN',
+  };
+  await saveTrade(trade);
+  state.checked = {};
+  state.tradeForm = { instrument:'GC', session:'', direction:'', entry_price:'', stop_loss_price:'', take_profit_price:'', position_size:'', market_context:'', entry_reason:'', notes:'', entry_time: nowISO() };
+  switchTab('journal');
+}
+
+// ══════════════════════════════════════════════
+// JOURNAL RENDER
+// ══════════════════════════════════════════════
+function renderJournal() {
+  const s = getStats();
+  const totR = s.totR;
+  const showDollars = state.showTotalDollars;
+
+  const pnlCard = `
+    <div class="stat-card" style="position:relative;">
+      <div class="label">P&L Total
+        <button class="eye-btn" onclick="state.showTotalDollars=!state.showTotalDollars;render()" title="${showDollars?'Voir en R':'Voir en $'}">
+          <i class="ti ${showDollars?'ti-eye-off':'ti-eye'}" aria-hidden="true"></i>
+        </button>
+      </div>
+      ${showDollars
+        ? `<div class="value ${s.pnl>=0?'green':'red'}">${s.pnl>=0?'+':''}${s.pnl.toFixed(2)}<span style="font-size:14px;">$</span></div>`
+        : `<div class="value ${totR===null?'':totR>=0?'green':'red'}">${totR===null?'-':(totR>=0?'+':'')+totR}<span style="font-size:14px;font-weight:400;">R</span></div>`
+      }
+    </div>
+  `;
+
+  const statsHtml = `
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Total</div><div class="value">${s.total}</div></div>
+      <div class="stat-card"><div class="label">Wins</div><div class="value green">${s.wins}</div></div>
+      <div class="stat-card"><div class="label">Losses</div><div class="value red">${s.losses}</div></div>
+      <div class="stat-card"><div class="label">Win Rate</div><div class="value">${s.wr}%</div></div>
+      <div class="stat-card"><div class="label">Ouverts</div><div class="value blue">${s.open}</div></div>
+      ${pnlCard}
+    </div>
+  `;
+
+  const f = state.manualForm;
+  const manualPanel = `
+    <div class="manual-panel" style="margin-bottom:16px;">
+      <button class="collapse-btn" onclick="state.manualOpen=!state.manualOpen;render()">
+        <span style="display:flex;align-items:center;gap:8px;">
+          <i class="ti ti-plus" aria-hidden="true"></i> Ajouter un trade manuellement
+        </span>
+        <i class="ti ${state.manualOpen?'ti-chevron-up':'ti-chevron-down'}" aria-hidden="true"></i>
+      </button>
+      ${state.manualOpen ? `
+        <hr class="divider"/>
+        <div class="grid-2" style="margin-bottom:12px;">
+          <div><label>Instrument</label>
+            <select onchange="state.manualForm.instrument=this.value">
+              <option value="GC">GC (Gold)</option><option value="ES">ES (S&P 500)</option><option value="NQ">NQ (Nasdaq)</option>
+            </select>
+          </div>
+          <div><label>Session</label>
+            <select onchange="state.manualForm.session=this.value">
+              <option value="">Sélectionnez...</option><option value="ASIA">Asia</option><option value="LONDON">London</option>
+              <option value="OVERLAP">Overlap London/NY</option><option value="NEW_YORK">New York</option>
+            </select>
+          </div>
+          <div><label>Direction</label>
+            <div style="display:flex;gap:6px;">
+              <button class="dir-btn ${f.direction==='LONG'?'long-active':''}" onclick="state.manualForm.direction='LONG';render()">LONG</button>
+              <button class="dir-btn ${f.direction==='SHORT'?'short-active':''}" onclick="state.manualForm.direction='SHORT';render()">SHORT</button>
+            </div>
+          </div>
+          <div><label>Statut</label>
+            <select onchange="state.manualForm.status=this.value">
+              <option value="WIN">WIN</option><option value="TP">TP</option>
+              <option value="LOSS">LOSS</option><option value="BREAKEVEN">BREAKEVEN</option><option value="OPEN">OPEN</option>
+            </select>
+          </div>
+          <div><label>Date & Heure d'entrée</label><input type="datetime-local" value="${f.entry_time}" onchange="state.manualForm.entry_time=this.value"/></div>
+          <div><label>Date & Heure de sortie</label><input type="datetime-local" value="${f.exit_time}" onchange="state.manualForm.exit_time=this.value"/></div>
+        </div>
+        <div class="grid-4" style="margin-bottom:12px;">
+          <div><label>Prix d'entrée</label><input type="number" step="0.01" value="${f.entry_price}" onchange="state.manualForm.entry_price=this.value"/></div>
+          <div><label>Stop Loss</label><input type="number" step="0.01" value="${f.stop_loss_price}" onchange="state.manualForm.stop_loss_price=this.value"/></div>
+          <div><label>Take Profit</label><input type="number" step="0.01" value="${f.take_profit_price}" onchange="state.manualForm.take_profit_price=this.value"/></div>
+          <div><label>Prix de sortie</label><input type="number" step="0.01" value="${f.exit_price}" onchange="state.manualForm.exit_price=this.value"/></div>
+          <div><label>P&L ($)</label><input type="number" step="0.01" value="${f.pnl}" onchange="state.manualForm.pnl=this.value"/></div>
+        </div>
+        <div style="margin-bottom:10px;"><label>Contexte du Marché</label><textarea rows="2" onchange="state.manualForm.market_context=this.value">${f.market_context}</textarea></div>
+        <div style="margin-bottom:10px;"><label>Raison d'entrée</label><textarea rows="2" onchange="state.manualForm.entry_reason=this.value">${f.entry_reason}</textarea></div>
+        <div style="margin-bottom:10px;"><label>Raison de sortie</label><textarea rows="2" onchange="state.manualForm.exit_reason=this.value">${f.exit_reason||''}</textarea></div>
+        <div style="margin-bottom:14px;"><label>Notes</label><textarea rows="2" onchange="state.manualForm.notes=this.value">${f.notes}</textarea></div>
+        <button class="btn btn-primary" style="width:100%;padding:11px;font-size:14px;" onclick="submitManual()">
+          <i class="ti ti-plus" aria-hidden="true"></i> Ajouter le Trade
+        </button>
+      ` : ''}
+    </div>
+  `;
+
+  if (!state.trades.length) return statsHtml + manualPanel + '<div class="card" style="text-align:center;padding:40px;color:var(--color-text-secondary);">Aucun trade enregistré</div>';
+
+  const tradeRows = state.trades.map(t => {
+    const r = t.r_factor !== null ? t.r_factor : computeR(t);
+    const showTDollars = state.showTradesDollars[t.id];
+    const pnlDisplay = t.pnl !== null
+      ? (showTDollars
+          ? `<span style="font-size:14px;font-weight:500;${t.pnl>=0?'color:#3B6D11':'color:#A32D2D'}">${t.pnl>=0?'+':''}${t.pnl.toFixed(2)}$</span>`
+          : `<span style="font-size:14px;font-weight:500;${r===null?'':r>=0?'color:#3B6D11':'color:#A32D2D'}">${r===null?'-':(r>=0?'+':'')+r+'R'}</span>`)
+      : '';
+    const eyeBtn = t.pnl !== null
+      ? `<button class="eye-btn" onclick="event.stopPropagation();state.showTradesDollars['${t.id}']=!state.showTradesDollars['${t.id}'];render()"><i class="ti ${showTDollars?'ti-eye-off':'ti-eye'}" aria-hidden="true"></i></button>`
+      : '';
+
+    const statusBadge = {WIN:'badge-win',LOSS:'badge-loss',OPEN:'badge-open',BREAKEVEN:'badge-be',TP:'badge-tp'}[t.status]||'badge-open';
+    const dt = t.entry_time ? new Date(t.entry_time) : new Date(t.created_at);
+    const dateStr = dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+    let details = '';
+    if (state.expandedTrade === t.id) {
+      if (state.editingTrade === t.id) {
+        const ef = state.editForm;
+        details = `<div class="trade-details">
+          <div class="grid-4" style="margin-bottom:12px;">
+            <div><label>Prix de sortie</label><input type="number" step="0.01" value="${ef.exit_price||''}" onchange="state.editForm.exit_price=this.value?parseFloat(this.value):null"/></div>
+            <div><label>P&L ($)</label><input type="number" step="0.01" value="${ef.pnl||''}" onchange="state.editForm.pnl=this.value?parseFloat(this.value):null"/></div>
+            <div><label>Statut</label>
+              <select onchange="state.editForm.status=this.value">
+                <option value="OPEN" ${ef.status==='OPEN'?'selected':''}>OPEN</option>
+                <option value="WIN" ${ef.status==='WIN'?'selected':''}>WIN</option>
+                <option value="TP" ${ef.status==='TP'?'selected':''}>TP</option>
+                <option value="LOSS" ${ef.status==='LOSS'?'selected':''}>LOSS</option>
+                <option value="BREAKEVEN" ${ef.status==='BREAKEVEN'?'selected':''}>BREAKEVEN</option>
+              </select>
+            </div>
+            <div><label>Heure de sortie</label><input type="datetime-local" value="${ef.exit_time||''}" onchange="state.editForm.exit_time=this.value"/></div>
+          </div>
+          <div style="margin-bottom:12px;"><label>Raison de sortie</label><textarea rows="2" onchange="state.editForm.exit_reason=this.value">${ef.exit_reason||''}</textarea></div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" onclick="saveEdit('${t.id}')"><i class="ti ti-check" aria-hidden="true"></i> Sauvegarder</button>
+            <button class="btn" onclick="state.editingTrade=null;render()"><i class="ti ti-x" aria-hidden="true"></i> Annuler</button>
+          </div>
+        </div>`;
+      } else {
+        const dur = t.entry_time && t.exit_time ? (() => {
+          const d = new Date(t.exit_time)-new Date(t.entry_time);
+          const h = Math.floor(d/3600000), m = Math.floor((d%3600000)/60000);
+          return h>0?`${h}h ${m}m`:`${m}m`;
+        })() : '-';
+        const rVal = computeR(t);
+        details = `<div class="trade-details">
+          <div class="grid-4" style="margin-bottom:16px;">
+            <div><label>Entrée</label><span style="font-size:14px;">${t.entry_price||'-'}</span></div>
+            <div><label>Stop Loss</label><span style="font-size:14px;">${t.stop_loss_price||'-'}</span></div>
+            <div><label>Take Profit</label><span style="font-size:14px;">${t.take_profit_price||'-'}</span></div>
+            <div><label>Sortie</label><span style="font-size:14px;">${t.exit_price||'-'}</span></div>
+            <div><label>Heure entrée</label><span style="font-size:13px;">${t.entry_time?new Date(t.entry_time).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'-'}</span></div>
+            <div><label>Heure sortie</label><span style="font-size:13px;">${t.exit_time?new Date(t.exit_time).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'-'}</span></div>
+            <div><label>Durée</label><span style="font-size:13px;">${dur}</span></div>
+            <div><label>Facteur R</label><span style="font-size:13px;font-weight:500;" class="${rVal!==null?(rVal>=0?'green':'red'):''}">${rVal!==null?(rVal>=0?'+':'')+rVal+'R':'-'}</span></div>
+          </div>
+          ${t.market_context?`<div style="margin-bottom:10px;"><label>Contexte</label><p style="font-size:13px;background:var(--color-background-secondary);padding:8px 10px;border-radius:6px;">${t.market_context}</p></div>`:''}
+          ${t.entry_reason?`<div style="margin-bottom:10px;"><label>Raison d'entrée</label><p style="font-size:13px;background:var(--color-background-secondary);padding:8px 10px;border-radius:6px;">${t.entry_reason}</p></div>`:''}
+          ${t.exit_reason?`<div style="margin-bottom:10px;"><label>Raison de sortie</label><p style="font-size:13px;background:var(--color-background-secondary);padding:8px 10px;border-radius:6px;">${t.exit_reason}</p></div>`:''}
+          ${t.notes?`<div style="margin-bottom:10px;"><label>Notes</label><p style="font-size:13px;background:var(--color-background-secondary);padding:8px 10px;border-radius:6px;">${t.notes}</p></div>`:''}
+          <div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:0.5px solid var(--color-border-tertiary);">
+            <button class="btn" onclick="startEdit('${t.id}')"><i class="ti ti-pencil" aria-hidden="true"></i> Modifier</button>
+            <button class="btn btn-danger" onclick="deleteTrade('${t.id}')"><i class="ti ti-trash" aria-hidden="true"></i> Supprimer</button>
+          </div>
+        </div>`;
+      }
+    }
+
+    return `
+      <div class="card" style="padding:0;margin-bottom:10px;overflow:hidden;">
+        <div class="trade-row trade-header" onclick="toggleExpand('${t.id}')">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="badge ${statusBadge}">${t.status}</span>
+            <span class="badge ${t.direction==='LONG'?'badge-long':'badge-short'}">${t.direction||'-'}</span>
+            <span style="font-weight:500;font-size:14px;">${t.instrument}</span>
+            ${t.session?`<span style="font-size:12px;color:var(--color-text-secondary);">${t.session}</span>`:''}
+            <span style="font-size:12px;color:var(--color-text-secondary);">${dateStr}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${pnlDisplay}${eyeBtn}
+            <i class="ti ${state.expandedTrade===t.id?'ti-chevron-up':'ti-chevron-down'}" style="color:var(--color-text-secondary);" aria-hidden="true"></i>
+          </div>
+        </div>
+        ${details}
+      </div>
+    `;
+  }).join('');
+
+  return statsHtml + manualPanel + tradeRows;
+}
+
+async function submitManual() {
+  const f = state.manualForm;
+  if (!f.direction) { alert('Sélectionnez une direction'); return; }
+  const ep = f.entry_price?parseFloat(f.entry_price):null;
+  const sl = f.stop_loss_price?parseFloat(f.stop_loss_price):null;
+  const ex = f.exit_price?parseFloat(f.exit_price):null;
+  const trade = {
+    id: Date.now().toString(), created_at: new Date().toISOString(),
+    entry_time: f.entry_time?new Date(f.entry_time).toISOString():new Date().toISOString(),
+    exit_time: f.exit_time?new Date(f.exit_time).toISOString():null,
+    instrument: f.instrument, session: f.session||null, direction: f.direction,
+    entry_price: ep, stop_loss_price: sl, take_profit_price: f.take_profit_price?parseFloat(f.take_profit_price):null,
+    exit_price: ex, pnl: f.pnl?parseFloat(f.pnl):null,
+    r_factor: computeR({entry_price:ep,stop_loss_price:sl,exit_price:ex,direction:f.direction}),
+    status: f.status, market_context:f.market_context||null, entry_reason:f.entry_reason||null,
+    exit_reason:f.exit_reason||null, notes:f.notes||null,
+  };
+  await saveTrade(trade);
+  state.manualForm = { instrument:'GC', session:'', direction:'', entry_price:'', stop_loss_price:'', take_profit_price:'', exit_price:'', pnl:'', status:'WIN', notes:'', entry_time:nowISO(), exit_time:nowISO(), market_context:'', entry_reason:'', exit_reason:'' };
+  state.manualOpen = false;
+  render();
+}
+
+function toggleExpand(id) { state.expandedTrade = state.expandedTrade===id?null:id; state.editingTrade=null; render(); }
+
+function startEdit(id) {
+  const t = state.trades.find(x=>x.id===id);
+  state.editingTrade = id;
+  state.editForm = { exit_price:t.exit_price, pnl:t.pnl, status:t.status, exit_reason:t.exit_reason||'', exit_time:t.exit_time?new Date(t.exit_time).toISOString().slice(0,16):nowISO() };
+  render();
+}
+
+async function saveEdit(id) {
+  const ef = state.editForm;
+  const idx = state.trades.findIndex(t=>t.id===id);
+  if (idx===-1) return;
+  const t = state.trades[idx];
+  const ep = t.entry_price, sl = t.stop_loss_price;
+  const ex = ef.exit_price ? parseFloat(ef.exit_price) : null;
+  const r = computeR({entry_price:ep, stop_loss_price:sl, exit_price:ex, direction:t.direction});
+  const updates = {
+    exit_price: ex,
+    pnl: ef.pnl ? parseFloat(ef.pnl) : null,
+    status: ef.status,
+    exit_reason: ef.exit_reason,
+    exit_time: ef.status!=='OPEN' ? (ef.exit_time?new Date(ef.exit_time).toISOString():new Date().toISOString()) : null,
+    r_factor: r,
+  };
+  await updateTrade(id, updates);
+  state.trades[idx] = {...t, ...updates};
+  state.editingTrade=null; state.editForm={};
+  render();
+}
+
+// ══════════════════════════════════════════════
+// STATS RENDER
+// ══════════════════════════════════════════════
+function renderStats() {
+  const s = getStats();
+  const TRADES = state.trades;
+
+  // Donut
+  const wins = TRADES.filter(t=>t.status==='WIN').length;
+  const tps = TRADES.filter(t=>t.status==='TP').length;
+  const losses = TRADES.filter(t=>t.status==='LOSS').length;
+  const be = TRADES.filter(t=>t.status==='BREAKEVEN').length;
+  const open = TRADES.filter(t=>t.status==='OPEN').length;
+  const winRate = (wins+tps+losses)>0 ? ((wins+tps)/(wins+tps+losses)*100) : 0;
+
+  const segments = [
+    { label:'WIN', count:wins, color:'#639922' },
+    { label:'TP', count:tps, color:'#1D9E75' },
+    { label:'LOSS', count:losses, color:'#E24B4A' },
+    { label:'BREAKEVEN', count:be, color:'#BA7517' },
+    { label:'OPEN', count:open, color:'#378ADD' },
+  ].filter(s => s.count > 0);
+
+  const totalSeg = segments.reduce((a,s)=>a+s.count,0)||1;
+  const cx=90, cy=90, R=78, r=52;
+  let cumAngle = -Math.PI/2;
+  function polarToXY(angle, radius) { return [cx + radius*Math.cos(angle), cy + radius*Math.sin(angle)]; }
+  let paths = '';
+  if (segments.length === 0) {
+    paths = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="var(--color-background-secondary)"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--color-background-primary)"/>`;
+  } else {
+    segments.forEach(seg => {
+      const angle = (seg.count/totalSeg)*2*Math.PI;
+      const [x1,y1] = polarToXY(cumAngle, R);
+      const [x2,y2] = polarToXY(cumAngle+angle, R);
+      const [ix1,iy1] = polarToXY(cumAngle+angle, r);
+      const [ix2,iy2] = polarToXY(cumAngle, r);
+      const large = angle > Math.PI ? 1 : 0;
+      paths += `<path d="M${x1},${y1} A${R},${R} 0 ${large},1 ${x2},${y2} L${ix1},${iy1} A${r},${r} 0 ${large},0 ${ix2},${iy2} Z" fill="${seg.color}" stroke="var(--color-background-primary)" stroke-width="2"/>`;
+      cumAngle += angle;
+    });
+  }
+
+  const legendHtml = segments.map(s => `
+    <div class="legend-row">
+      <div class="legend-dot" style="background:${s.color};"></div>
+      <span style="font-size:13px;flex:1;">${s.label}</span>
+      <span style="font-size:13px;font-weight:500;">${s.count}</span>
+      <span style="font-size:12px;color:var(--color-text-secondary);min-width:36px;text-align:right;">${(s.count/totalSeg*100).toFixed(0)}%</span>
+    </div>
+  `).join('');
+
+  // R Distribution
+  const closed = TRADES.filter(t => t.status !== 'OPEN');
+  const rVals = closed.map(t => t.r_factor !== null ? t.r_factor : computeR(t)).filter(r => r !== null);
+  const buckets = [
+    { label:'< -1R', color:'#E24B4A', fn: r => r < -1 },
+    { label:'-1R à 0R', color:'#F09595', fn: r => r >= -1 && r < 0 },
+    { label:'0R (BE)', color:'#EF9F27', fn: r => r === 0 },
+    { label:'0R à +1R', color:'#97C459', fn: r => r > 0 && r < 1 },
+    { label:'+1R à +2R', color:'#639922', fn: r => r >= 1 && r < 2 },
+    { label:'> +2R', color:'#3B6D11', fn: r => r >= 2 },
+  ];
+  const maxCount = Math.max(1, ...buckets.map(b => rVals.filter(b.fn).length));
+  const distHtml = buckets.map(b => {
+    const cnt = rVals.filter(b.fn).length;
+    const pct = rVals.length ? (cnt/rVals.length*100).toFixed(0) : 0;
+    const w = (cnt/maxCount*100).toFixed(0);
+    return `<div class="bar-wrap">
+      <span class="bar-label">${b.label}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${b.color};"></div></div>
+      <span class="bar-val" style="color:${b.color};">${cnt} <span style="font-size:11px;font-weight:400;color:var(--color-text-secondary);">(${pct}%)</span></span>
+    </div>`;
+  }).join('');
+
+  // Advanced stats
+  const avgR = rVals.length ? (rVals.reduce((a,x)=>a+x,0)/rVals.length) : null;
+  const totR = rVals.length ? rVals.reduce((a,x)=>a+x,0) : null;
+  const bestR = rVals.length ? Math.max(...rVals) : null;
+  const worstR = rVals.length ? Math.min(...rVals) : null;
+  const positiveR = rVals.filter(r=>r>0);
+  const negativeR = rVals.filter(r=>r<0);
+  const avgWinR = positiveR.length ? (positiveR.reduce((a,x)=>a+x,0)/positiveR.length) : null;
+  const avgLossR = negativeR.length ? (negativeR.reduce((a,x)=>a+x,0)/negativeR.length) : null;
+  const advStats = [
+    { label:'Total R', val: totR!==null?(totR>=0?'+':'')+totR.toFixed(2)+'R':'-', cls: totR!==null&&totR>=0?'green':'red' },
+    { label:'Avg R/trade', val: avgR!==null?(avgR>=0?'+':'')+avgR.toFixed(2)+'R':'-', cls: avgR!==null&&avgR>=0?'green':'red' },
+    { label:'Meilleur', val: bestR!==null?'+'+bestR+'R':'-', cls:'green' },
+    { label:'Pire', val: worstR!==null?worstR+'R':'-', cls:'red' },
+    { label:'Avg Win R', val: avgWinR!==null?'+'+avgWinR.toFixed(2)+'R':'-', cls:'green' },
+    { label:'Avg Loss R', val: avgLossR!==null?avgLossR.toFixed(2)+'R':'-', cls:'red' },
+  ];
+
+  // Sessions
+  const bySession = {};
+  TRADES.forEach(t => {
+    const sess = t.session||'Inconnu';
+    if (!bySession[sess]) bySession[sess]={total:0,wins:0,r:[]};
+    bySession[sess].total++;
+    if (t.status==='WIN'||t.status==='TP') bySession[sess].wins++;
+    const rv = t.r_factor !== null ? t.r_factor : computeR(t);
+    if (rv!==null) bySession[sess].r.push(rv);
+  });
+  const sessHtml = Object.entries(bySession).map(([k,v])=>{
+    const wr = v.total>0?((v.wins/v.total)*100).toFixed(0)+'%':'-';
+    const ar = v.r.length?(v.r.reduce((a,x)=>a+x,0)/v.r.length).toFixed(2):null;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:0.5px solid var(--color-border-tertiary);">
+      <span style="font-size:13px;font-weight:500;min-width:100px;">${k}</span>
+      <span style="font-size:13px;color:var(--color-text-secondary);">${v.total} trades</span>
+      <span style="font-size:13px;font-weight:500;">${wr}</span>
+      <span style="font-size:13px;font-weight:500;" class="${ar!==null?(parseFloat(ar)>=0?'green':'red'):''}">${ar!==null?(parseFloat(ar)>=0?'+':'')+ar+'R':'-'}</span>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="card">
+      <div style="font-size:14px;font-weight:500;margin-bottom:16px;">Répartition des trades par résultat</div>
+      <div style="display:flex;align-items:center;gap:32px;flex-wrap:wrap;">
+        <div style="position:relative;width:180px;height:180px;flex-shrink:0;">
+          <svg viewBox="0 0 180 180" width="180" height="180">${paths}</svg>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+            <div style="font-size:22px;font-weight:500;">${winRate.toFixed(0)}%</div>
+            <div style="font-size:11px;color:var(--color-text-secondary);">Win Rate</div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:160px;">${legendHtml || '<p style="font-size:13px;color:var(--color-text-secondary);">Aucun trade</p>'}</div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:500;margin-bottom:16px;">Distribution Facteur R</div>
+      ${distHtml || '<p style="font-size:13px;color:var(--color-text-secondary);">Aucun trade clôturé</p>'}
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:500;margin-bottom:14px;">Statistiques avancées</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;">
+        ${advStats.map(s=>`<div class="stat-card"><div class="label">${s.label}</div><div class="value ${s.cls}">${s.val}</div></div>`).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div style="font-size:14px;font-weight:500;margin-bottom:14px;">Performance par session</div>
+      ${Object.keys(bySession).length ? `
+        <div style="display:flex;justify-content:space-between;padding-bottom:6px;border-bottom:0.5px solid var(--color-border-tertiary);">
+          <span style="font-size:12px;color:var(--color-text-secondary);min-width:100px;">Session</span>
+          <span style="font-size:12px;color:var(--color-text-secondary);">Volume</span>
+          <span style="font-size:12px;color:var(--color-text-secondary);">Win Rate</span>
+          <span style="font-size:12px;color:var(--color-text-secondary);">Avg R</span>
+        </div>
+        ${sessHtml}
+      ` : '<p style="font-size:13px;color:var(--color-text-secondary);">Aucune donnée</p>'}
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  const { url, key } = getConfig();
+  if (url && key) {
+    initSupabase(url, key);
+  } else {
+    document.getElementById('config-screen').style.display = 'flex';
+  }
+});
+</script>
+</body>
+</html>
