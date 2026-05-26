@@ -1,0 +1,1 @@
+# GCATrading-journal
