@@ -116,7 +116,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--c
 <!-- ══════════════════════════════════════════════
      ÉCRAN DE CONFIGURATION (si pas encore configuré)
 ═══════════════════════════════════════════════ -->
-<div id="config-screen" style="display:none; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;">
+<div id="config-screen" style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;">
   <div class="auth-box" style="max-width:480px;">
     <h2>⚙️ Configuration Supabase</h2>
     <p>Entre ta config Supabase pour activer l'authentification et la base de données cloud.</p>
@@ -199,11 +199,12 @@ function getConfig() {
 }
 
 function saveConfig() {
-  const url = document.getElementById('cfg-url').value.trim();
+  const url = document.getElementById('cfg-url').value.trim().replace(/\/$/, '');
   const key = document.getElementById('cfg-key').value.trim();
   const err = document.getElementById('cfg-error');
-  if (!url || !url.startsWith('https://')) { err.style.display='block'; err.textContent='URL invalide (doit commencer par https://)'; return; }
-  if (!key || key.length < 20) { err.style.display='block'; err.textContent='Clé invalide'; return; }
+  err.style.display = 'none';
+  if (!url || !url.includes('supabase.co')) { err.style.display='block'; err.textContent='URL invalide — doit contenir supabase.co'; return; }
+  if (!key || key.length < 20) { err.style.display='block'; err.textContent='Clé invalide — trop courte'; return; }
   localStorage.setItem('sb_url', url);
   localStorage.setItem('sb_key', key);
   initSupabase(url, key);
